@@ -9,12 +9,12 @@ HttpCanary 小黄鸟
 打开HttpCanary,进入QQ小程序，搜索企鹅阅读，之后打开抓包工具，再选择一本书记住阅读不要超过十秒，五秒最佳。关闭抓包工具。
 
 ###4.利用上面的样例，将第3步得到的数据替换到格式里面 打开https://www.runoob.com/try/try-cdnjs.php?filename=tryjson_stringify  格式化json数据，一共三段
-https://github.com/llllcccjjj/qe_read/blob/main/img/1.png 这是一个使用图 
+![image](https://github.com/llllcccjjj/qe_read/blob/main/img/1.png) 这是一个使用图 
 先格式第一段，再格式第三段
 第二段的打开抓包工具搜索ReadtimeWithBid
-https://github.com/llllcccjjj/qe_read/blob/main/img/2.png
-之后见https://github.com/llllcccjjj/qe_read/blob/main/img/3.png长按复制下来
-最终的得到的格式为https://github.com/llllcccjjj/qe_read/blob/main/img/4.png
+![image](https://github.com/llllcccjjj/qe_read/blob/main/img/2.png)
+之后见![image](https://github.com/llllcccjjj/qe_read/blob/main/img/3.png)长按复制下来
+最终的得到的格式为![image](https://github.com/llllcccjjj/qe_read/blob/main/img/4.png)
 三段之间利用@分割
 ###5. 填入secret COOKIE_QEYD
 #### 样例：  
