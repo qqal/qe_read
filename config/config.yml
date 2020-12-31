@@ -1,1 +1,52 @@
-132134123
+name: Lyyyuuuu's Scripts Config File
+version: 1.2.3
+skip_check_config_version: false # 默认不跳过配置文件的版本检测
+
+# 消息推送
+notify:
+  enable: true # true 开启消息推送； false 关闭消息推送 （默认所有脚本开启消息推送）
+  type:
+    # 建议只填写一两个或者全部填写后设置对应脚本任务中的 notify_mode 参数
+    bark:
+      # ios 在 app store 下载 bark app，bark 推送 url 为 https://api.day.app/xxxxxxxxxxx/这里改成你自己的推送内容，则 xxxxxxxxxxx 为你的 bark 机器码
+      BARK_MACHINE_CODE:
+    telegram_bot:
+      # 暂时自行百度google
+      TG_BOT_TOKEN:
+      TG_USER_ID:
+    dingding_bot:
+      # 钉钉机器人，参考教程：https://ding-doc.dingtalk.com/doc#/serverapi2/qf2nxq 在"安全设置"中选择"加签"（必须勾选），其他不懂不要勾选
+      DD_BOT_ACCESS_TOKEN:
+      DD_BOT_SECRET:
+    server_chan:
+      # 未测试
+      # ServerChan，参考教程：http://sc.ftqq.com/3.version
+      SCKEY:
+
+# 脚本配置信息
+jobs:
+  qq_read:
+    # 使用前请阅读 https://github.com/TNanko/Scripts/blob/master/docs/qq_read.md
+    enable: false # true 启用脚本； false 不启用脚本（默认不启用脚本）
+    version: v1.3.5
+    skip_check_script_version: false # 默认不跳过版本检测
+    notify: false # true 启用消息推送； false 不启用消息推送（默认不发消息推送）
+    notify_mode:  # 如果全都配置了，可以根据自身需求进行消息推送方式的选择，不需要的可以注释掉或者删除。由于 bark 消息长度的限制，不推荐 bark
+      - bark
+      - telegram_bot
+      - dingding_bot
+      - server_chan
+    scripts_filename: 'qq_read.py'
+    schedule:
+      cron: '*/10 * * * *'
+    parameters:
+      UPLOAD_TIME: 5 # 每次上传阅读时长（单位分钟）
+      MAX_READ_TIME: 600 # 每日最大阅读时长（单位分钟）
+      ACCOUNTS:
+          # 多账号，将下面三个参数复制一遍，例子已经写好自行替换，注意冒号后面的空格，空格，空格！（建议在文本编辑器上输入）。
+          # 进书库选择一本书，阅读几秒钟，将抓到的 headers ， body 和 书籍 url ，分别填到下方的 HEADERS ， BODY 和 BOOK_URL （注意冒号后面的空格，不要带引号！）
+        - HEADERS: {"ywsession":"scrdjg765xyr210bvgsd8po9mcvt8n0q","Cookie":"ywguid=1161617824;ywkey=ywC1hMNeGdBX;platform=android;channel=mqqmina;mpVersion=0.30.0","Connection":"keep-alive","Content-Type":"application/json","Accept":"*/*","Host":"mqqapi.reader.qq.com","User-Agent":"Mozilla%2F5.0+%28Linux%3B+Android+10%3B+MI+8+Build%2FQKQ1.190828.002%3B+wv%29+AppleWebKit%2F537.36+%28KHTML%2C+like+Gecko%29+Version%2F4.0+Chrome%2F83.0.4103.101+Mobile+Safari%2F537.36 QQ/8.4.10.4875 V1_AND_SQ_8.4.10_1524_YYB_D QQ/MiniApp","Referer":"https://appservice.qq.com/1110657249/0.30.0/page-frame.html","Accept-Language":"zh-cn","Accept-Encoding":"gzip,deflate,br","mpversion":"0.30.0"}
+          BODY: {"ywsession":"scrdjg765xyr210bvgsd8po9mcvt8n0q","Cookie":"ywguid=1161617824;ywkey=ywC1hMNeGdBX;platform=android;channel=mqqmina;mpVersion=0.30.0;qq_ver=8.4.10.4875;os_ver=Android 10;mpos_ver=1.20.0;platform=android;openid=F6911AB4B39976ECBB2C60277A870A02","Connection":"keep-alive","Content-Type":"application/json","Accept":"*/*","Host":"mqqapi.reader.qq.com","User-Agent":"Mozilla%2F5.0+%28Linux%3B+Android+10%3B+MI+8+Build%2FQKQ1.190828.002%3B+wv%29+AppleWebKit%2F537.36+%28KHTML%2C+like+Gecko%29+Version%2F4.0+Chrome%2F83.0.4103.101+Mobile+Safari%2F537.36 QQ/8.4.10.4875 V1_AND_SQ_8.4.10_1524_YYB_D QQ/MiniApp","Referer":"https://appservice.qq.com/1110657249/0.30.0/page-frame.html","Accept-Language":"zh-cn","Accept-Encoding":"gzip, deflate, br","mpversion":"0.30.0"}
+          BOOK_URL: https://mqqapi.reader.qq.com/mqq/addReadTimeWithBid?scene=3001&refer=-1&bid=228182&readTime=3438&read_type=0&conttype=1&read_status=0&chapter_info=%5B%7B%223%22%3A%7B%22readTime%22%3A3438%2C%22pay_status%22%3A0%7D%7D%5D&sp=-1
+          WITHDRAW: true
+          HOSTING_MODE: true 
