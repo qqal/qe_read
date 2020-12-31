@@ -1,116 +1,722 @@
-/*
-感谢sazs34大佬的替换思路和脚本https://github.com/sazs34
-感谢ZIYE制作的企鹅阅读脚本https://github.com/18u
-*/
-const exec = require("child_process").execSync;
-const fs = require("fs");
-const axios = require("axios");
+#!/usr/bin/env python3
+# _*_ coding:utf-8 _*_
 
-const $ = new Env();
-const notify = $.isNode() ? require('../sendNotify') : '';
+# @Time    : 2020/12/3 1:28
+# @Author  : TNanko
+# @Site    : https://tnanko.github.io
+# @File    : qq_read.py
+# @Software: PyCharm
+"""
+此脚本使用 Python 语言根据 https://raw.githubusercontent.com/ziye12/JavaScript/master/Task/qqreads.js 改写
+使用教程 https://github.com/TNanko/Scripts/blob/master/docs/qq_read.md
+"""
 
-// 公共变量
-const Secrets = {
-    SyncUrl: process.env.SYNCURL, //签到地址,方便随时变动
-    PUSH_KEY: process.env.PUSH_KEY, //server酱推送消息
-    BARK_PUSH: process.env.BARK_PUSH, //Bark推送
-    TG_BOT_TOKEN: process.env.TG_BOT_TOKEN, //TGBot推送Token
-    TG_USER_ID: process.env.TG_USER_ID, //TGBot推送成员ID
-    COOKIE_QEYD: process.env.COOKIE_QEYD, //企鹅阅读ck
-};
-let Cookies = [];
+import sys
+import os
+cur_path = os.path.abspath(os.path.dirname(__file__))
+root_path = os.path.split(cur_path)[0]
+sys.path.append(root_path)
+import json
+import re
+import time
+import random
+import requests
+import traceback
+from setup import get_standard_time
+from utils import notify
+from utils.configuration import read
 
-async function downFile() {
-    let response = await axios.get(Secrets.SyncUrl);
-    let content = response.data;
-    await fs.writeFileSync("./temp.js", content, "utf8");
-}
 
-async function changeFiele(content, cookie) {
-    //替换各种信息.
-    content = content.replace("const notifyInterval=2", `const notifyInterval=2\nconst notify = $.isNode() ? require('./sendNotify') : '';`)
-    content = content.replace(/\$\.msg\(jsname,''/g, "notify.sendNotify(jsname")
-    content = content.replace("$.getdata(qqreadurlKey)", "\"https://mqqapi.reader.qq.com/mqq/user/init\"")
-    content = content.replace("$.getdata(qqreadheaderKey)", JSON.stringify(cookie.split("@")[0]))
-    content = content.replace("$.getdata(qqreadtimeurlKey)", JSON.stringify(cookie.split("@")[1]))
-    content = content.replace("$.getdata(qqreadtimeheaderKey)", JSON.stringify(cookie.split("@")[2]))
-    //console.log(content);
-    await fs.writeFileSync('./execute.js', content, 'utf8')
-}
+def pretty_dict(dict):
+    """
+    格式化输出 json 或者 dict 格式的变量
+    :param dict:
+    :return:
+    """
+    print(json.dumps(dict, indent=4, ensure_ascii=False))
 
-async function deleteFile(path) {
-    // 查看文件result.txt是  否存在,如果存在,先删除
-    const fileExists = await fs.existsSync(path);
-    // console.log('fileExists', fileExists);
-    if (fileExists) {
-        const unlinkRes = await fs.unlinkSync(path);
-        // console.log('unlinkRes', unlinkRes)
-    }
-}
 
-async function executeOneByOne() {
-    const content = await fs.readFileSync("./temp.js", "utf8");
-    for (var i = 0; i < Cookies.length; i++) {
-        console.log(`正在执行第${i + 1}个账号`);
-        await changeFiele(content, Cookies[i]);
-        console.log("替换变量完毕");
-        try {
-            await exec("node execute.js", { stdio: "inherit" });//根据源脚本进行通知
-            //await exec("node execute.js >> result.txt")//根据返回内容判断进行通知
-        } catch (e) {
-            console.log("执行异常:" + e);
-        }
-        console.log("执行完毕");
-        const path = "./result.txt";
-        let result = "";
-        if (fs.existsSync(path)) {
-            result = fs.readFileSync(path, "utf8");
-            //console.log(result);
-            msg(result);
-        }
-        //运行完成后，删除下载的文件
-        console.log('运行完成后，删除下载的文件\n')
-        await deleteFile(path);
-    }
-}
+def get_user_info(headers):
+    """
+    获取任务信息
+    :param headers:
+    :return:
+    """
+    url = 'https://mqqapi.reader.qq.com/mqq/user/init'
+    try:
+        response = requests.get(url=url, headers=headers, timeout=30).json()
+        if response['code'] == 0:
+            return response['data']
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
 
-async function msg(content) {
-    var reg =/【任务列表】:余额(\d{1,7})金币/g;
-    var gold = parseInt(reg.exec(content)[1].trim());
-    let d = new Date(new Date().getTime() + 8 * 60 * 60 * 1000);
-    if (d.getHours()==22 && d.getMinutes()<=20 ) {
-        await notify.sendNotify(`${d.toLocaleString()}`, content);
-        //console.log(content)
-    } else if (gold >= 10000) {
-        await notify.sendNotify(`${d.toLocaleString()}`, content);
-        //console.log(content)
-    } else {
-        //await notify.sendNotify(`${$.name}` + `${d.toLocaleString()}`, content);
-        console.log(content)
-    }
-}
 
-async function start() {
-    //console.log(`当前执行时间:${new Date().toString()}`);
-    console.log(`国际时间 (UTC+00)：${new Date().toLocaleString()}`)
-    console.log(`北京时间 (UTC+08)：${new Date(new Date().getTime() + 8 * 60 * 60 * 1000).toLocaleString()}\n`)
-    if (!Secrets.COOKIE_QEYD) {
-        console.log("请填写 COOKIE_QEYD 后在继续");
-        return;
-    }
-    if (!Secrets.SyncUrl) {
-        console.log("请填写 SYNCURL 后在继续");
-        return;
-    }
-    Cookies = Secrets.COOKIE_QEYD.split("\n");
-    console.log(`当前共${Cookies.length}个账号需要执行`);
-    // 下载最新代码
-    await downFile();
-    console.log("下载代码完毕");
-    await executeOneByOne();
-    console.log("全部执行完毕");
-}
+def get_daily_beans(headers):
+    """
+    阅豆签到
+    :param headers:
+    :return:
+    """
+    url = 'https://mqqapi.reader.qq.com/mqq/sign_in/user'
+    try:
+        response = requests.post(url=url, headers=headers, timeout=30).json()
+        if response['code'] == 0:
+            return response['data']
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
 
-start();
 
-function Env(t, e) { class s { constructor(t) { this.env = t } send(t, e = "GET") { t = "string" == typeof t ? { url: t } : t; let s = this.get; return "POST" === e && (s = this.post), new Promise((e, i) => { s.call(this, t, (t, s, r) => { t ? i(t) : e(s) }) }) } get(t) { return this.send.call(this.env, t) } post(t) { return this.send.call(this.env, t, "POST") } } return new class { constructor(t, e) { this.name = t, this.http = new s(this), this.data = null, this.dataFile = "box.dat", this.logs = [], this.isMute = !1, this.isNeedRewrite = !1, this.logSeparator = "\n", this.startTime = (new Date).getTime(), Object.assign(this, e), this.log("", `\ud83d\udd14${this.name}, \u5f00\u59cb!`) } isNode() { return "undefined" != typeof module && !!module.exports } isQuanX() { return "undefined" != typeof $task } isSurge() { return "undefined" != typeof $httpClient && "undefined" == typeof $loon } isLoon() { return "undefined" != typeof $loon } toObj(t, e = null) { try { return JSON.parse(t) } catch { return e } } toStr(t, e = null) { try { return JSON.stringify(t) } catch { return e } } getjson(t, e) { let s = e; const i = this.getdata(t); if (i) try { s = JSON.parse(this.getdata(t)) } catch { } return s } setjson(t, e) { try { return this.setdata(JSON.stringify(t), e) } catch { return !1 } } getScript(t) { return new Promise(e => { this.get({ url: t }, (t, s, i) => e(i)) }) } runScript(t, e) { return new Promise(s => { let i = this.getdata("@chavy_boxjs_userCfgs.httpapi"); i = i ? i.replace(/\n/g, "").trim() : i; let r = this.getdata("@chavy_boxjs_userCfgs.httpapi_timeout"); r = r ? 1 * r : 20, r = e && e.timeout ? e.timeout : r; const [o, h] = i.split("@"), a = { url: `http://${h}/v1/scripting/evaluate`, body: { script_text: t, mock_type: "cron", timeout: r }, headers: { "X-Key": o, Accept: "*/*" } }; this.post(a, (t, e, i) => s(i)) }).catch(t => this.logErr(t)) } loaddata() { if (!this.isNode()) return {}; { this.fs = this.fs ? this.fs : require("fs"), this.path = this.path ? this.path : require("path"); const t = this.path.resolve(this.dataFile), e = this.path.resolve(process.cwd(), this.dataFile), s = this.fs.existsSync(t), i = !s && this.fs.existsSync(e); if (!s && !i) return {}; { const i = s ? t : e; try { return JSON.parse(this.fs.readFileSync(i)) } catch (t) { return {} } } } } writedata() { if (this.isNode()) { this.fs = this.fs ? this.fs : require("fs"), this.path = this.path ? this.path : require("path"); const t = this.path.resolve(this.dataFile), e = this.path.resolve(process.cwd(), this.dataFile), s = this.fs.existsSync(t), i = !s && this.fs.existsSync(e), r = JSON.stringify(this.data); s ? this.fs.writeFileSync(t, r) : i ? this.fs.writeFileSync(e, r) : this.fs.writeFileSync(t, r) } } lodash_get(t, e, s) { const i = e.replace(/\[(\d+)\]/g, ".$1").split("."); let r = t; for (const t of i) if (r = Object(r)[t], void 0 === r) return s; return r } lodash_set(t, e, s) { return Object(t) !== t ? t : (Array.isArray(e) || (e = e.toString().match(/[^.[\]]+/g) || []), e.slice(0, -1).reduce((t, s, i) => Object(t[s]) === t[s] ? t[s] : t[s] = Math.abs(e[i + 1]) >> 0 == +e[i + 1] ? [] : {}, t)[e[e.length - 1]] = s, t) } getdata(t) { let e = this.getval(t); if (/^@/.test(t)) { const [, s, i] = /^@(.*?)\.(.*?)$/.exec(t), r = s ? this.getval(s) : ""; if (r) try { const t = JSON.parse(r); e = t ? this.lodash_get(t, i, "") : e } catch (t) { e = "" } } return e } setdata(t, e) { let s = !1; if (/^@/.test(e)) { const [, i, r] = /^@(.*?)\.(.*?)$/.exec(e), o = this.getval(i), h = i ? "null" === o ? null : o || "{}" : "{}"; try { const e = JSON.parse(h); this.lodash_set(e, r, t), s = this.setval(JSON.stringify(e), i) } catch (e) { const o = {}; this.lodash_set(o, r, t), s = this.setval(JSON.stringify(o), i) } } else s = this.setval(t, e); return s } getval(t) { return this.isSurge() || this.isLoon() ? $persistentStore.read(t) : this.isQuanX() ? $prefs.valueForKey(t) : this.isNode() ? (this.data = this.loaddata(), this.data[t]) : this.data && this.data[t] || null } setval(t, e) { return this.isSurge() || this.isLoon() ? $persistentStore.write(t, e) : this.isQuanX() ? $prefs.setValueForKey(t, e) : this.isNode() ? (this.data = this.loaddata(), this.data[e] = t, this.writedata(), !0) : this.data && this.data[e] || null } initGotEnv(t) { this.got = this.got ? this.got : require("got"), this.cktough = this.cktough ? this.cktough : require("tough-cookie"), this.ckjar = this.ckjar ? this.ckjar : new this.cktough.CookieJar, t && (t.headers = t.headers ? t.headers : {}, void 0 === t.headers.Cookie && void 0 === t.cookieJar && (t.cookieJar = this.ckjar)) } get(t, e = (() => { })) { t.headers && (delete t.headers["Content-Type"], delete t.headers["Content-Length"]), this.isSurge() || this.isLoon() ? (this.isSurge() && this.isNeedRewrite && (t.headers = t.headers || {}, Object.assign(t.headers, { "X-Surge-Skip-Scripting": !1 })), $httpClient.get(t, (t, s, i) => { !t && s && (s.body = i, s.statusCode = s.status), e(t, s, i) })) : this.isQuanX() ? (this.isNeedRewrite && (t.opts = t.opts || {}, Object.assign(t.opts, { hints: !1 })), $task.fetch(t).then(t => { const { statusCode: s, statusCode: i, headers: r, body: o } = t; e(null, { status: s, statusCode: i, headers: r, body: o }, o) }, t => e(t))) : this.isNode() && (this.initGotEnv(t), this.got(t).on("redirect", (t, e) => { try { if (t.headers["set-cookie"]) { const s = t.headers["set-cookie"].map(this.cktough.Cookie.parse).toString(); this.ckjar.setCookieSync(s, null), e.cookieJar = this.ckjar } } catch (t) { this.logErr(t) } }).then(t => { const { statusCode: s, statusCode: i, headers: r, body: o } = t; e(null, { status: s, statusCode: i, headers: r, body: o }, o) }, t => { const { message: s, response: i } = t; e(s, i, i && i.body) })) } post(t, e = (() => { })) { if (t.body && t.headers && !t.headers["Content-Type"] && (t.headers["Content-Type"] = "application/x-www-form-urlencoded"), t.headers && delete t.headers["Content-Length"], this.isSurge() || this.isLoon()) this.isSurge() && this.isNeedRewrite && (t.headers = t.headers || {}, Object.assign(t.headers, { "X-Surge-Skip-Scripting": !1 })), $httpClient.post(t, (t, s, i) => { !t && s && (s.body = i, s.statusCode = s.status), e(t, s, i) }); else if (this.isQuanX()) t.method = "POST", this.isNeedRewrite && (t.opts = t.opts || {}, Object.assign(t.opts, { hints: !1 })), $task.fetch(t).then(t => { const { statusCode: s, statusCode: i, headers: r, body: o } = t; e(null, { status: s, statusCode: i, headers: r, body: o }, o) }, t => e(t)); else if (this.isNode()) { this.initGotEnv(t); const { url: s, ...i } = t; this.got.post(s, i).then(t => { const { statusCode: s, statusCode: i, headers: r, body: o } = t; e(null, { status: s, statusCode: i, headers: r, body: o }, o) }, t => { const { message: s, response: i } = t; e(s, i, i && i.body) }) } } time(t) { let e = { "M+": (new Date).getMonth() + 1, "d+": (new Date).getDate(), "H+": (new Date).getHours(), "m+": (new Date).getMinutes(), "s+": (new Date).getSeconds(), "q+": Math.floor(((new Date).getMonth() + 3) / 3), S: (new Date).getMilliseconds() }; /(y+)/.test(t) && (t = t.replace(RegExp.$1, ((new Date).getFullYear() + "").substr(4 - RegExp.$1.length))); for (let s in e) new RegExp("(" + s + ")").test(t) && (t = t.replace(RegExp.$1, 1 == RegExp.$1.length ? e[s] : ("00" + e[s]).substr(("" + e[s]).length))); return t } msg(e = t, s = "", i = "", r) { const o = t => { if (!t) return t; if ("string" == typeof t) return this.isLoon() ? t : this.isQuanX() ? { "open-url": t } : this.isSurge() ? { url: t } : void 0; if ("object" == typeof t) { if (this.isLoon()) { let e = t.openUrl || t.url || t["open-url"], s = t.mediaUrl || t["media-url"]; return { openUrl: e, mediaUrl: s } } if (this.isQuanX()) { let e = t["open-url"] || t.url || t.openUrl, s = t["media-url"] || t.mediaUrl; return { "open-url": e, "media-url": s } } if (this.isSurge()) { let e = t.url || t.openUrl || t["open-url"]; return { url: e } } } }; this.isMute || (this.isSurge() || this.isLoon() ? $notification.post(e, s, i, o(r)) : this.isQuanX() && $notify(e, s, i, o(r))); let h = ["", "==============\ud83d\udce3\u7cfb\u7edf\u901a\u77e5\ud83d\udce3=============="]; h.push(e), s && h.push(s), i && h.push(i), console.log(h.join("\n")), this.logs = this.logs.concat(h) } log(...t) { t.length > 0 && (this.logs = [...this.logs, ...t]), console.log(t.join(this.logSeparator)) } logErr(t, e) { const s = !this.isSurge() && !this.isQuanX() && !this.isLoon(); s ? this.log("", `\u2757\ufe0f${this.name}, \u9519\u8bef!`, t.stack) : this.log("", `\u2757\ufe0f${this.name}, \u9519\u8bef!`, t) } wait(t) { return new Promise(e => setTimeout(e, t)) } done(t = {}) { const e = (new Date).getTime(), s = (e - this.startTime) / 1e3; this.log("", `\ud83d\udd14${this.name}, \u7ed3\u675f! \ud83d\udd5b ${s} \u79d2`), this.log(), (this.isSurge() || this.isQuanX() || this.isLoon()) && $done(t) } }(t, e) }
+def get_daily_tasks(headers):
+    """
+    获取今日任务列表
+    :param headers:
+    :return:
+    """
+    url = 'https://mqqapi.reader.qq.com/mqq/red_packet/user/page?fromGuid='
+    try:
+        response = requests.get(url=url, headers=headers, timeout=30).json()
+        if response['code'] == 0:
+            # print('获取今日任务')
+            # pretty_dict(response['data'])
+            return response['data']
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
+
+
+def get_today_read_time(headers):
+    """
+    得到今日阅读时长
+    :param headers:
+    :return:
+    """
+    url = 'https://mqqapi.reader.qq.com/mqq/page/config?router=%2Fpages%2Fbook-read%2Findex&options='
+    try:
+        response = requests.get(url=url, headers=headers, timeout=30).json()
+        # print('今日阅读')
+        # pretty_dict(response)
+        if response['code'] == 0:
+            return response['data']['pageParams']
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
+
+
+def read_time_reward_tasks(headers, seconds):
+    """
+    阅读奖励，好像一个号只能领一次
+    :param headers:
+    :param seconds:
+    :return:
+    """
+    url = f'https://mqqapi.reader.qq.com/mqq/red_packet/user/read_time_reward?seconds={seconds}'
+    try:
+        response = requests.get(url=url, headers=headers, timeout=30).json()
+        # print('阅读奖励')
+        # pretty_dict(response)
+        if response['code'] == 0:
+            return response['data']
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
+
+
+def get_week_read_time(headers):
+    """
+    周阅读时长
+    :param headers:
+    :return:
+    """
+    url = 'https://mqqapi.reader.qq.com/mqq/v1/bookShelfInit'
+    try:
+        response = requests.get(url=url, headers=headers, timeout=30).json()
+        # print('周阅读时长')
+        # pretty_dict(response)
+        if response['code'] == 0:
+            return response['data']
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
+
+
+def read_now(headers):
+    """
+    立即阅读
+    :param headers:
+    :return:
+    """
+    url = 'https://mqqapi.reader.qq.com/mqq/red_packet/user/read_book'
+    try:
+        response = requests.get(url=url, headers=headers, timeout=30).json()
+        # pretty_dict(response)
+        if response['code'] == 0:
+            return response['data']
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
+
+
+def read_tasks(headers, seconds):
+    """
+    每日阅读任务
+    :param headers:
+    :param seconds:
+    :return:
+    """
+    url = f'https://mqqapi.reader.qq.com/mqq/red_packet/user/read_time?seconds={seconds}'
+    try:
+        response = requests.get(url=url, headers=headers, timeout=30).json()
+        if response['code'] == 0:
+            return response['data']
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
+
+
+def daily_sign(headers):
+    """
+    今日打卡
+    :param headers:
+    :return:
+    """
+    url = 'https://mqqapi.reader.qq.com/mqq/red_packet/user/clock_in/page'
+    try:
+        response = requests.get(url=url, headers=headers, timeout=30).json()
+        if response['code'] == 0:
+            return response['data']
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
+
+
+def watch_daily_sign_ads(headers):
+    """
+    今日打卡看广告翻倍
+    :param headers:
+    :return:
+    """
+    url = 'https://mqqapi.reader.qq.com/mqq/red_packet/user/clock_in_video'
+    try:
+        response = requests.get(url=url, headers=headers, timeout=30).json()
+        time.sleep(3)
+        if response['code'] == 0:
+            return response['data']
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
+
+
+def watch_videos(headers):
+    """
+    看视频，拿金币
+    :param headers:
+    :return:
+    """
+    url = 'https://mqqapi.reader.qq.com/mqq/red_packet/user/watch_video'
+    try:
+        response = requests.get(url=url, headers=headers, timeout=30).json()
+        if response['code'] == 0:
+            return response['data']
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
+
+
+def open_treasure_box(headers):
+    """
+    每20分钟开一次宝箱
+    :param headers:
+    :return:
+    """
+    url = 'https://mqqapi.reader.qq.com/mqq/red_packet/user/treasure_box'
+    try:
+        response = requests.get(url=url, headers=headers, timeout=30).json()
+        time.sleep(15)
+        if response['code'] == 0:
+            return response['data']
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
+
+
+def watch_treasure_box_ads(headers):
+    """
+    看广告，宝箱奖励翻倍
+    :param headers:
+    :return:
+    """
+    url = 'https://mqqapi.reader.qq.com/mqq/red_packet/user/treasure_box_video'
+    try:
+        response = requests.get(url=url, headers=headers, timeout=30).json()
+        time.sleep(15)
+        if response['code'] == 0:
+            return response['data']
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
+
+
+def get_week_read_tasks(headers):
+    """
+    周阅读奖励查询
+    :param headers:
+    :return:
+    """
+    url = 'https://mqqapi.reader.qq.com/mqq/pickPackageInit'
+    try:
+        response = requests.get(url=url, headers=headers, timeout=30).json()
+        if response['code'] == 0:
+            return response['data']
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
+
+
+def get_week_read_reward(headers, read_time):
+    """
+    领取周阅读奖励
+    :param headers:
+    :param read_time: 阅读时长
+    :return:
+    """
+    url = f'https://mqqapi.reader.qq.com/mqq/pickPackage?readTime={read_time}'
+    try:
+        response = requests.get(url=url, headers=headers, timeout=30).json()
+        # print(f'领取周阅读奖励({read_time})')
+        # pretty_dict(response)
+        if response['code'] == 0:
+            return response['data']
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
+
+
+def read_books(headers, book_url, upload_time):
+    """
+    刷时长
+    :param headers:
+    :return:
+    """
+    try:
+        upload_time_for_url = random.randint((upload_time - 1) * 60 * 1000, (upload_time + 1) * 60 * 1000)
+        time_in_url = re.compile(r'readTime=(.*?)&read_')
+        book_url = re.sub(time_in_url.findall(book_url)[0], str(upload_time_for_url), str(book_url))
+        try:
+            time_in_chapter_info = re.compile(r'readTime%22%3A(\d+)%2C')
+            book_url = re.sub(time_in_chapter_info.findall(book_url)[0], str(upload_time_for_url), str(book_url))
+        except:
+            time_in_chapter_info = re.compile(r'"1":{"readTime":(\d+),"pay_status"')
+            book_url = re.sub(time_in_chapter_info.findall(book_url)[0], str(upload_time_for_url), str(book_url))
+        response = requests.get(url=book_url, headers=headers, timeout=30).json()
+        if response['code'] == 0:
+            return f'{upload_time_for_url // 1000 // 60}分{upload_time_for_url // 1000 % 60}秒'
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
+
+
+def track(headers, body):
+    """
+    数据追踪，解决1金币问题
+    :param headers:
+    :param body:
+    :return:
+    """
+    try:
+        url = 'https://mqqapi.reader.qq.com/log/v4/mqq/track'
+        timestamp = re.compile(r'"dis": (.*?),')
+        body = json.dumps(body)
+        body = re.sub(timestamp.findall(body)[0], str(int(time.time() * 1000)), str(body))
+        response = requests.post(url=url, headers=headers, data=body, timeout=30).json()
+        if response['code'] == 0:
+            return True
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
+
+
+def get_red_packets(headers, pn):
+    """
+    今日金币统计
+    :param headers:
+    :param pn: 金币列表序号
+    :return:
+    """
+    try:
+        url = f'https://mqqapi.reader.qq.com/mqq/red_packet/user/trans/list?pn={pn}'
+        response = requests.get(url=url, headers=headers, timeout=30).json()
+        if response['code'] == 0:
+            return response['data']
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
+
+
+def get_withdraw_info(headers):
+    try:
+        url = 'https://mqqapi.reader.qq.com/mqq/red_packet/user/withdraw/page'
+        response = requests.get(url=url, headers=headers, timeout=30).json()
+        if response['code'] == 0:
+            return response['data']['configList']
+        else:
+            return
+    except:
+        print(traceback.format_exc())
+        return
+
+
+def withdraw_to_wallet(headers, amount):
+    try:
+        url = f"https://mqqapi.reader.qq.com/mqq/red_packet/user/withdraw?amount={amount}"
+        response = requests.post(url=url, headers=headers, timeout=30).json()
+        if response['data']['code'] == 0:
+            return True
+        # 实名认证检测
+        # elif response['data']['code'] == -300 and response['data']['msg'] == 'REALNAME_CHECK_ERROR':
+        #     return f"{response['data']['msg']}，请前去QQ进行实名认证！"
+        else:
+            return response['data']['msg']
+    except:
+        print(traceback.format_exc())
+        return '访问提现接口错误！'
+
+
+def qq_read():
+    config_latest, config_current = read()
+    # 读取企鹅读书配置
+    try:
+        qq_read_config = config_current['jobs']['qq_read']
+    except:
+        print('配置文件中没有此任务！请更新您的配置文件')
+        return
+    # 脚本版本检测
+    try:
+        if qq_read_config['skip_check_script_version']:
+            print('参数 skip_check_script_version = true ，跳过脚本版本检测...')
+        elif config_latest:
+            if config_latest['jobs']['qq_read']['version'] > qq_read_config['version']:
+                print(f"检测到最新的脚本版本号为{config_latest['jobs']['qq_read']['version']}，当前脚本版本号：{qq_read_config['version']}")
+            else:
+                print('当前脚本为最新版本')
+        else:
+            print('未获取到最新脚本的版本号')
+    except:
+        print('程序运行异常，跳过脚本版本检测...')
+    # 获取config.yml账号信息
+    accounts = qq_read_config['parameters']['ACCOUNTS']
+    # 每次上传的时间
+    upload_time = qq_read_config['parameters']['UPLOAD_TIME']
+    # 每天最大阅读时长
+    max_read_time = qq_read_config['parameters']['MAX_READ_TIME']
+    # 消息推送方式
+    notify_mode = qq_read_config['notify_mode']
+
+    # 确定脚本是否开启执行模式
+    if qq_read_config['enable']:
+        for account in accounts:
+            try:
+                book_url = account['BOOK_URL']
+                headers = account['HEADERS']
+                body = account['BODY']
+                withdraw = account['WITHDRAW']
+                hosting_mode = account['HOSTING_MODE']
+                utc_datetime, beijing_datetime = get_standard_time()
+                symbol = '=' * 16
+                print(f'\n{symbol}【企鹅读书】{utc_datetime.strftime("%Y-%m-%d %H:%M:%S")}/{beijing_datetime.strftime("%Y-%m-%d %H:%M:%S")} {symbol}\n')
+
+                start_time = time.time()
+                title = f'☆【企鹅读书】{beijing_datetime.strftime("%Y-%m-%d %H:%M:%S")} ☆'
+                content = ''
+                # 调用 track 接口，为保证输出结果美观，输出信息写在后面
+                track_result = track(headers=headers, body=body)
+                # 获取用户信息（昵称）
+                user_info = get_user_info(headers=headers)
+                if user_info:
+                    content += f'【用户昵称】{user_info["user"]["nickName"]}'
+                # 获取任务列表，查询金币余额
+                daily_tasks = get_daily_tasks(headers=headers)
+
+                if daily_tasks:
+                    content += f'\n【金币余额】剩余{daily_tasks["user"]["amount"]}金币，可提现{daily_tasks["user"]["amount"] // 10000}元'
+
+                '''如果需要一个单独开箱子的脚本，删除↑↓箭头内脚本，一共4个代码段，这是第1个代码段   ↓ '''
+
+                # 查询今日获得金币数量
+                beijing_datetime_0 = beijing_datetime.strftime('%Y-%m-%d') + ' 00:00:00'
+                today_coins_total = 0
+                is_today_red_packet = True
+                for pn in range(1, 15):
+                    red_packets = get_red_packets(headers=headers, pn=pn)
+                    if red_packets and is_today_red_packet:
+                        for red_packet in red_packets['list']:
+                            if red_packet['content'] >= beijing_datetime_0:
+                                today_coins_total += red_packet['amount']
+                            else:
+                                is_today_red_packet = False
+                                break
+                    elif not red_packets:
+                        content += f'\n【今日收益】请求接口错误！'
+                        break
+                    else:
+                        content += f"\n【今日收益】{today_coins_total}金币，约{'{:4.2f}'.format(today_coins_total / 10000)}元"
+                        break
+                # 查询本周阅读时长
+                week_read_time = get_week_read_time(headers=headers)
+                if week_read_time:
+                    content += f'\n【本周阅读】{week_read_time["readTime"] // 60}小时{week_read_time["readTime"] % 60}分钟'
+                # 查询今日阅读时长
+                today_read_time = get_today_read_time(headers=headers)
+                if today_read_time:
+                    content += f'\n【今日阅读】{today_read_time["todayReadSeconds"] // 3600}小时{today_read_time["todayReadSeconds"] // 60 % 60}分钟'
+                # 输出任务列表中的信息
+                if daily_tasks:
+                    content += f'\n【{daily_tasks["taskList"][0]["title"]}】{daily_tasks["taskList"][0]["amount"]}金币，{daily_tasks["taskList"][0]["actionText"]}'
+                    content += f'\n【{daily_tasks["taskList"][1]["title"]}】{daily_tasks["taskList"][1]["amount"]}金币，{daily_tasks["taskList"][1]["actionText"]}'
+                    content += f'\n【{daily_tasks["taskList"][2]["title"]}】{daily_tasks["taskList"][2]["amount"]}金币，{daily_tasks["taskList"][2]["actionText"]}'
+                    content += f'\n【{daily_tasks["taskList"][3]["title"]}】{daily_tasks["taskList"][3]["amount"]}金币，{daily_tasks["taskList"][3]["actionText"]}{daily_tasks["taskList"][3]["subTitle"]}'
+                    content += f'\n【邀请任务】{daily_tasks["invite"]["month"]}月第{daily_tasks["invite"]["issue"]}期({daily_tasks["invite"]["dayRange"]})，已邀{daily_tasks["invite"]["inviteCount"]}人，再邀请{daily_tasks["invite"]["nextInviteConfig"]["count"]}人可获{daily_tasks["invite"]["nextInviteConfig"]["amount"]}金币'
+                    content += f'\n【粉丝分成】已有{daily_tasks["fans"]["fansCount"]}个粉丝，今日获得分成{daily_tasks["fans"]["todayAmount"]}金币'
+                    content += f'\n【宝箱任务】已开{daily_tasks["treasureBox"]["count"]}个宝箱，下一个宝箱{daily_tasks["treasureBox"]["tipText"]}'
+
+                # 每日签到
+                daily_beans = get_daily_beans(headers=headers)
+                if daily_beans and daily_beans['takeTicket'] > 0:
+                    content += f"\n【阅豆签到】获得{daily_beans['takeTicket']}阅豆"
+
+                # 阅读奖励，好像每个账号只能领一次
+                if not today_read_time['readTimeRewardTask'][len(today_read_time['readTimeRewardTask']) - 1]['doneFlag']:
+                    seconds = [60, 180, 360, 600, 900, 1200, 1500]
+                    for i in seconds:
+                        read_time_reward = read_time_reward_tasks(headers=headers, seconds=i)
+                        if read_time_reward:
+                            content += f"\n【阅读奖励】阅读{i}秒，获得金币{read_time_reward['amount']}"
+
+                # 立即阅读《xxx》
+                if daily_tasks['taskList'][0]['enableFlag']:
+                    read_now_reward = read_now(headers=headers)
+                    if read_now_reward:
+                        content += f'\n【{daily_tasks["taskList"][0]["title"]}】获得{read_now_reward["amount"]}金币'
+
+                # 阅读任务
+                if daily_tasks['taskList'][1]['enableFlag']:
+                    for task in daily_tasks['taskList'][1]['config']:
+                        if task['enableFlag'] and not task['doneFlag']:
+                            read_reward = read_tasks(headers=headers, seconds=task['seconds'])
+                            if read_reward and read_reward['amount'] > 0:
+                                content += f"\n【阅读任务】阅读{task['timeStr']}，获得{read_reward['amount']}金币"
+
+                # 今日打卡
+                if daily_tasks['taskList'][2]['enableFlag']:
+                    sign_reward = daily_sign(headers=headers)
+                    if sign_reward:
+                        content += f"\n【{daily_tasks['taskList'][2]['title']}】获得{sign_reward['todayAmount']}金币，已连续签到{sign_reward['clockInDays']}天"
+                    # 打卡翻倍
+                    if sign_reward['videoDoneFlag'] == 0:
+                        sign_ads_reward = watch_daily_sign_ads(headers=headers)
+                        if sign_ads_reward:
+                            content += f"\n【打卡翻倍】获得{sign_ads_reward['amount']}金币"
+
+                # 看视频
+                if daily_tasks['taskList'][3]['enableFlag']:
+                    finish_count = int(daily_tasks["taskList"][3]["subTitle"][1:2])
+                    total_count = int(daily_tasks["taskList"][3]["subTitle"][3:4])
+                    # for i in range(1, total_count+1):
+                    watch_videos_reward = watch_videos(headers=headers)
+                    if watch_videos_reward:
+                        content += f"\n【视频奖励】获得{watch_videos_reward['amount']}金币({finish_count + 1}/{total_count})"
+
+                # 周阅读时长奖励查询
+                week_read_rewards = get_week_read_tasks(headers=headers)
+                # 当周阅读时间 >= 最大奖励所需要的时间(1200分钟)，领取奖励
+                if week_read_time['readTime'] >= week_read_rewards[len(week_read_rewards) - 1]['readTime']:
+                    for week_read_reward in week_read_rewards:
+                        if not week_read_reward['isPick']:
+                            reward = get_week_read_reward(headers=headers, read_time=week_read_reward['readTime'])
+                            if reward:
+                                content += f"\n【周时长奖励】领取{week_read_reward['readTime']}时长奖励成功"
+
+                '''如果需要一个单独开箱子的脚本，删除↑↓箭头内脚本，一共4个代码段，这是第1个代码段   ↑ '''
+
+                # 开宝箱领金币
+                if daily_tasks['treasureBox']['doneFlag'] == 0:
+                    treasure_box_reward = open_treasure_box(headers=headers)
+                    if treasure_box_reward:
+                        content += f"\n【开启第{treasure_box_reward['count']}个宝箱】获得{treasure_box_reward['amount']}金币"
+
+                # 宝箱金币奖励翻倍
+                daily_tasks = get_daily_tasks(headers=headers)
+                if daily_tasks['treasureBox']['videoDoneFlag'] == 0:
+                    treasure_box_ads_reward = watch_treasure_box_ads(headers=headers)
+                    if treasure_box_ads_reward:
+                        content += f"\n【宝箱奖励翻倍】获得{treasure_box_ads_reward['amount']}金币"
+
+                '''如果需要一个单独开箱子的脚本，删除↑↓箭头内脚本，一共4个代码段，这是第2个代码段   ↓ '''
+
+                # 读书刷时长
+                if max_read_time > today_read_time["todayReadSeconds"] // 60:
+                    read_book = read_books(headers=headers, book_url=book_url, upload_time=upload_time)
+                    if read_book:
+                        content += f'\n【阅读时长】成功增加{read_book}的阅读时长'
+                else:
+                    content += f'\n【阅读时长】已达到设置的对大阅读时长，故不增加阅读时长'
+
+                '''如果需要一个单独开箱子的脚本，删除↑↓箭头内脚本，一共4个代码段，这是第2个代码段   ↑ '''
+
+                # track(headers, body)的输出信息
+                if track_result:
+                    content += f'\n【数据跟踪】跟踪成功！'
+                else:
+                    content += f'\n【数据跟踪】跟踪失败！请重新抓取你的参数 body '
+
+                '''如果需要一个单独开箱子的脚本，删除↑↓箭头内脚本，一共4个代码段，这是第3个代码段   ↓ '''
+
+                if withdraw and user_info:
+                    # 获取提现信息
+                    withdraw_info = get_withdraw_info(headers=headers)
+                    transform_info = []
+                    if withdraw_info:
+                        for i in withdraw_info:
+                            if i['amount'] == 6000:
+                                transform_info.append({
+                                    'amount': i['amount'],
+                                    'withdraw_time': 1
+                                })
+                            elif i['amount'] == 10000 or i['amount'] == 20000:
+                                withdraw_time = re.findall('\d+', i['tipText'])
+                                transform_info.append({
+                                    'amount': i['amount'],
+                                    'withdraw_time': int(withdraw_time[0])
+                                })
+                            else:
+                                transform_info.append({
+                                    'amount': i['amount'],
+                                    'withdraw_time': 999
+                                })
+
+                    # 提现
+                    if withdraw and beijing_datetime.hour == 23:
+                        if hosting_mode:
+                            # 先把0.6元提现了
+                            if daily_tasks["user"]["amount"] >= 6000 and transform_info[0]['amount'] == 6000 and \
+                                    transform_info[0]['withdraw_time'] > 0:
+                                withdraw_result = withdraw_to_wallet(headers=headers, amount=6000)
+                                if withdraw_result == True:
+                                    content += f'\n【托管提现】提现0.6元成功！'
+                                    # 提现成功后，如果 notify 打开就发推送
+                                    if qq_read_config['notify']:
+                                        notify.send(title=title, content=f"【托管提现】账号{user_info['user']['nickName']}提现0.6元成功！",
+                                                    notify_mode=notify_mode)
+                                else:
+                                    content += f'\n【托管提现】提现失败！原因：{withdraw_result}'
+                            elif daily_tasks["user"]["amount"] >= 10000:
+                                transform_info.reverse()  # 提现尝试 大额度->小额度
+                                for i in transform_info:
+                                    if daily_tasks["user"]["amount"] >= i['amount'] and i['withdraw_time'] > 0:
+                                        withdraw_result = withdraw_to_wallet(headers=headers, amount=i['amount'])
+                                        if withdraw_result == True:
+                                            content += f"\n【托管提现】提现{i['amount'] // 10000}元成功！"
+                                            if qq_read_config['notify']:
+                                                notify.send(title=title, content=f"【托管提现】账号{user_info['user']['nickName']}提现{i['amount'] // 10000}元成功！", notify_mode=notify_mode)
+                                        else:
+                                            content += f'\n【托管提现】提现失败！原因：{withdraw_result}'
+                                        break
+                            else:
+                                content += f'\n【托管提现】余额不足或低金额提现次数耗尽，无法提现！'
+                        else:
+                            if daily_tasks["user"]["amount"] >= 100000:
+                                withdraw_result = withdraw_to_wallet(headers=headers, amount=100000)
+                                if withdraw_result == True:
+                                    content += f'\n【满额提现】提现10元成功！'
+                                    if qq_read_config['notify']:
+                                        notify.send(title=title, content=f"【满额提现】账号{user_info['user']['nickName']}提现10元成功！", notify_mode=notify_mode)
+                                else:
+                                    content += f'\n【满额提现】提现失败！原因：{withdraw_result}'
+                            else:
+                                content += f'\n【满额提现】余额不足10元，未打开托管模式，不提现！'
+                    else:
+                        content += f'\n【自动提现】未到23点'
+                else:
+                    content += f'\n【自动提现】未启用该功能'
+
+                '''如果需要一个单独开箱子的脚本，删除↑↓箭头内脚本，一共4个代码段，这是第3个代码段   ↑ '''
+
+                content += f'\n🕛耗时：%.2f秒' % (time.time() - start_time)
+                content += f'\n如果帮助到您可以点下🌟STAR鼓励我一下，谢谢~'
+                print(title)
+                print(content)
+
+                '''如果需要一个单独开箱子的脚本，删除↑↓箭头内脚本，一共4个代码段，这是第4个代码段   ↓ '''
+
+                # 每天 22:00 - 22:10 发送消息推送
+                if qq_read_config['notify'] and beijing_datetime.hour == 22 and beijing_datetime.minute < 10:
+                    notify.send(title=title, content=content, notify_mode=notify_mode)
+                elif not qq_read_config['notify']:
+                    print('未进行消息推送，原因：未设置消息推送。如需发送消息推送，请确保配置文件的对应的脚本任务中，参数notify的值为true\n')
+                elif not beijing_datetime.hour == 22:
+                    print('未进行消息推送，原因：没到对应的推送时间点\n')
+                else:
+                    print('未在规定的时间范围内\n')
+
+                '''如果需要一个单独开箱子的脚本，删除↑↓箭头内脚本，一共4个代码段，这是第4个代码段   ↑ '''
+
+            except:
+                # 如果headers过期，先获取 QQ 号
+                headers = account['HEADERS']
+                utc_datetime, beijing_datetime = get_standard_time()
+                qq_id = re.findall(r'ywguid=(.*?);', str(headers['Cookie']))[0]
+                if qq_id:
+                    print(f'☆【企鹅读书】{beijing_datetime.strftime("%Y-%m-%d %H:%M:%S")} ☆\nQQ账号 {qq_id} headers过期!')
+                    # 发送推送
+                    if qq_read_config['notify'] and beijing_datetime.hour / 3 == 0 and beijing_datetime.minute < 10:
+                        notify.send(title=f'☆【企鹅读书】{beijing_datetime.strftime("%Y-%m-%d %H:%M:%S")} ☆',
+                                    content=f'QQ账号 {qq_id} headers过期!', notify_mode=notify_mode)
+                else:
+                    print('获取QQ账号失败，请检查headers')
+    else:
+        print('未执行该任务，如需执行请在配置文件的对应的任务中，将参数enable设置为true\n')
+
+
+def main():
+    qq_read()
+
+
+if __name__ == '__main__':
+    main()
