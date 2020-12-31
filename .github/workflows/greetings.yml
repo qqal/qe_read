@@ -18,7 +18,7 @@ jobs:
         if: github.event.repository.owner.id == github.event.sender.id
         env:
             COOKIE_QEYD: ${{ secrets.COOKIE_QEYD }}
-            SYNCURL: https://raw.githubusercontent.com/ziye12/JavaScript/master/Task/qqreadnode.js
+            SYNCURL: https://github.com/yjjsto/ziye12/blob/main/Task/qqreads.js
         steps:
             - uses: actions/checkout@v1
             - name: Use Node.js 10.x
