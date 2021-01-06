@@ -17,8 +17,9 @@ jobs:
         runs-on: ubuntu-latest
         if: github.event.repository.owner.id == github.event.sender.id
         env:
-            COOKIE_QEYD: ${{ secrets.COOKIE_QEYD }}
-            SYNCURL: https://raw.githubusercontent.com/ziye12/JavaScript/master/qqread.js
+            QQREAD_BODY: ${{ secrets.QQREAD_BODY }}
+            QQREAD_TIMEURL: ${{ secrets.QQREAD_TIMEURL }}
+            QQREAD_TIMEHD: ${{ secrets.QQREAD_TIMEHD }}
         steps:
             - uses: actions/checkout@v1
             - name: Use Node.js 10.x
@@ -30,7 +31,7 @@ jobs:
                   npm install
             - name: "运行 【企鹅阅读】"
               run: |
-                  node Scripts/qeyd_replace.js
+                  node Scripts/qqreadnode.js
               env:
                   PUSH_KEY: ${{ secrets.PUSH_KEY }}
                   BARK_PUSH: ${{ secrets.BARK_PUSH }}
